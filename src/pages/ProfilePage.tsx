@@ -80,14 +80,11 @@ const ProfilePage = () => {
         <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-card p-8 flex flex-col gap-6">
           {/* Back */}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/mapa")}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver al mapa
-          </button>
-
-          <h1 className="text-xl font-bold text-foreground">Perfil de usuario</h1>
           </button>
 
           <h1 className="text-xl font-bold text-foreground">Perfil de usuario</h1>
