@@ -8,7 +8,7 @@ import MarkersPanel from "@/components/MarkersPanel";
 import RoutesPanel from "@/components/RoutesPanel";
 import ZonesPanel from "@/components/ZonesPanel";
 import type { Marker } from "@/components/MarkersPanel";
-import type { Route } from "@/components/RoutesPanel";
+import type { RouteResult } from "@/components/RoutesPanel";
 import type { Zone } from "@/components/ZonesPanel";
 
 const HomePage = () => {
@@ -19,13 +19,13 @@ const HomePage = () => {
   }, [navigate]);
 
   const [markers, setMarkers] = useState<Marker[]>(() => loadJSON("markers", []));
-  const [route, setRoute] = useState<Route | null>(() => loadJSON("route", null));
+  const [routeResult, setRouteResult] = useState<RouteResult | null>(() => loadJSON("routeResult", null));
   const [zones, setZones] = useState<Zone[]>(() => loadJSON("zones", []));
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [tempZone, setTempZone] = useState<{ lat: number; lng: number }[]>([]);
 
   useEffect(() => saveJSON("markers", markers), [markers]);
-  useEffect(() => saveJSON("route", route), [route]);
+  useEffect(() => saveJSON("routeResult", routeResult), [routeResult]);
   useEffect(() => saveJSON("zones", zones), [zones]);
 
   const handleMapClick = useCallback(
@@ -41,7 +41,6 @@ const HomePage = () => {
 
   const removeMarker = (i: number) => {
     setMarkers((prev) => prev.filter((_, idx) => idx !== i));
-    if (route && (route.origin === i || route.destination === i)) setRoute(null);
   };
 
   const closeZone = () => {
@@ -79,11 +78,10 @@ const HomePage = () => {
             onRemove={removeMarker}
             onClearAll={() => {
               setMarkers([]);
-              setRoute(null);
             }}
           />
           <div className="h-px bg-border" />
-          <RoutesPanel markers={markers} route={route} onCalculate={setRoute} />
+          <RoutesPanel routeResult={routeResult} onCalculate={setRouteResult} />
           <div className="h-px bg-border" />
           <ZonesPanel
             zones={zones}
@@ -106,7 +104,7 @@ const HomePage = () => {
         <div className="flex-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
           <MapView
             markers={markers}
-            route={route}
+            routeResult={routeResult}
             zones={zones}
             tempZone={tempZone}
             isDrawingZone={isDrawingZone}

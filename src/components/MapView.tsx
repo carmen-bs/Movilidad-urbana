@@ -1,8 +1,8 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Marker as MarkerType } from "./MarkersPanel";
-import type { Route } from "./RoutesPanel";
+import type { RouteResult } from "./RoutesPanel";
 import type { Zone } from "./ZonesPanel";
 
 // Fix default marker icons
@@ -13,16 +13,34 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
+const originIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const destIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 interface Props {
   markers: MarkerType[];
-  route: Route | null;
+  routeResult: RouteResult | null;
   zones: Zone[];
   tempZone: { lat: number; lng: number }[];
   isDrawingZone: boolean;
   onMapClick: (lat: number, lng: number) => void;
 }
 
-const MapView = ({ markers, route, zones, tempZone, isDrawingZone, onMapClick }: Props) => {
+const MapView = ({ markers, routeResult, zones, tempZone, isDrawingZone, onMapClick }: Props) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef<L.LayerGroup>(L.layerGroup());
@@ -59,16 +77,34 @@ const MapView = ({ markers, route, zones, tempZone, isDrawingZone, onMapClick }:
     const group = layersRef.current;
     group.clearLayers();
 
-    // Markers
+    // Manual markers
     markers.forEach((m, i) => {
       L.marker([m.lat, m.lng]).bindPopup(`Punto ${i + 1}`).addTo(group);
     });
 
-    // Route polyline
-    if (route && markers[route.origin] && markers[route.destination]) {
-      const o = markers[route.origin];
-      const d = markers[route.destination];
-      L.polyline([[o.lat, o.lng], [d.lat, d.lng]], { color: "#06B6D4", weight: 4 }).addTo(group);
+    // OSRM route
+    if (routeResult) {
+      // Origin & destination markers
+      L.marker([routeResult.originCoord.lat, routeResult.originCoord.lng], { icon: originIcon })
+        .bindPopup("Origen")
+        .addTo(group);
+      L.marker([routeResult.destCoord.lat, routeResult.destCoord.lng], { icon: destIcon })
+        .bindPopup("Destino")
+        .addTo(group);
+
+      // Route polyline
+      const polyline = L.polyline(routeResult.geometry, {
+        color: "#06B6D4",
+        weight: 4,
+        opacity: 0.9,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(group);
+
+      // Fit bounds
+      if (mapRef.current) {
+        mapRef.current.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+      }
     }
 
     // Saved zones
@@ -86,7 +122,7 @@ const MapView = ({ markers, route, zones, tempZone, isDrawingZone, onMapClick }:
         { color: "#06B6D4", fillColor: "#06B6D4", fillOpacity: 0.1, weight: 2, dashArray: "6 4" }
       ).addTo(group);
     }
-  }, [markers, route, zones, tempZone, isDrawingZone]);
+  }, [markers, routeResult, zones, tempZone, isDrawingZone]);
 
   return <div ref={containerRef} className="w-full h-full min-h-[400px] rounded-lg" />;
 };
