@@ -11,6 +11,8 @@ import type { Marker } from "@/components/MarkersPanel";
 import type { RouteResult } from "@/components/RoutesPanel";
 import type { Zone } from "@/components/ZonesPanel";
 import type { SavedRoute, SavedZone } from "@/types/models";
+import type { PredefinedRoute } from "@/data/predefinedRoutes";
+import { predefinedRoutes } from "@/data/predefinedRoutes";
 import { Save } from "lucide-react";
 
 const HomePage = () => {
@@ -32,12 +34,14 @@ const HomePage = () => {
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [tempZone, setTempZone] = useState<{ lat: number; lng: number }[]>([]);
 
-  // Load selected route/zone from list pages
+  // Load selected route/zone from list pages or predefined route
   useEffect(() => {
     const selRouteKey = `selectedRoute:${authUser}`;
     const selZoneKey = `selectedZone:${authUser}`;
+    const selPredefinedKey = `selectedPredefined:${authUser}`;
     const selRoute = loadJSON<SavedRoute | null>(selRouteKey, null);
     const selZone = loadJSON<SavedZone | null>(selZoneKey, null);
+    const selPredefined = loadJSON<PredefinedRoute | null>(selPredefinedKey, null);
 
     if (selRoute) {
       setRouteResult({
@@ -50,6 +54,35 @@ const HomePage = () => {
       setRouteOriginLabel(selRoute.origen.label);
       setRouteDestLabel(selRoute.destino.label);
       localStorage.removeItem(selRouteKey);
+    }
+
+    if (selPredefined) {
+      localStorage.removeItem(selPredefinedKey);
+      // Fetch OSRM route for the predefined route
+      (async () => {
+        try {
+          const url = `https://router.project-osrm.org/route/v1/driving/${selPredefined.origen.lng},${selPredefined.origen.lat};${selPredefined.destino.lng},${selPredefined.destino.lat}?overview=full&geometries=geojson`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.code === "Ok" && data.routes?.length) {
+            const route = data.routes[0];
+            const distKm = Math.round((route.distance / 1000) * 10) / 10;
+            const durMin = Math.round((distKm / 80) * 60);
+            const geometry: [number, number][] = route.geometry.coordinates.map(
+              (c: [number, number]) => [c[1], c[0]]
+            );
+            setRouteResult({
+              originCoord: selPredefined.origen,
+              destCoord: selPredefined.destino,
+              geometry,
+              distance: distKm,
+              duration: durMin,
+            });
+            setRouteOriginLabel(selPredefined.origen.label);
+            setRouteDestLabel(selPredefined.destino.label);
+          }
+        } catch { /* silently fail */ }
+      })();
     }
 
     if (selZone) {
@@ -135,6 +168,28 @@ const HomePage = () => {
     toast.success("Ruta guardada");
   };
 
+  const handleSelectPredefined = useCallback(async (pr: PredefinedRoute) => {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${pr.origen.lng},${pr.origen.lat};${pr.destino.lng},${pr.destino.lat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.code === "Ok" && data.routes?.length) {
+        const route = data.routes[0];
+        const distKm = Math.round((route.distance / 1000) * 10) / 10;
+        const durMin = Math.round((distKm / 80) * 60);
+        const geometry: [number, number][] = route.geometry.coordinates.map(
+          (c: [number, number]) => [c[1], c[0]]
+        );
+        setRouteResult({ originCoord: pr.origen, destCoord: pr.destino, geometry, distance: distKm, duration: durMin });
+        setRouteOriginLabel(pr.origen.label);
+        setRouteDestLabel(pr.destino.label);
+        toast.success(`Mostrando: ${pr.nombre}`);
+      }
+    } catch {
+      toast.error("No se pudo cargar la ruta");
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -199,6 +254,7 @@ const HomePage = () => {
             tempZone={tempZone}
             isDrawingZone={isDrawingZone}
             onMapClick={handleMapClick}
+            onSelectPredefined={handleSelectPredefined}
           />
         </div>
       </div>
